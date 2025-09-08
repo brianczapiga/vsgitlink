@@ -12,19 +12,13 @@ export class LinkGenerator {
         }
 
         const document = editor.document;
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
         
-        // If not in a workspace, try to find the git root from the file path
-        let gitRoot: string;
-        if (workspaceFolder) {
-            gitRoot = workspaceFolder.uri.fsPath;
-        } else {
-            const foundGitRoot = await this.findGitRoot(document.uri.fsPath);
-            if (!foundGitRoot) {
-                vscode.window.showErrorMessage('File is not in a Git repository');
-                return;
-            }
-            gitRoot = foundGitRoot;
+        // Try to find the git root from the file path
+        let gitRoot = await this.findGitRoot(document.uri.fsPath);
+        
+        if (!gitRoot) {
+            vscode.window.showErrorMessage('File is not in a Git repository. Please ensure you are working within a git repository.');
+            return;
         }
 
         try {

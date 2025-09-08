@@ -2,7 +2,7 @@
   "name": "vsgitlink",
   "displayName": "VS Git Link",
   "description": "Seamlessly work with GitHub links - clone repos, navigate to specific lines, and generate shareable links",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "engines": {
     "vscode": "^1.74.0"
   },
