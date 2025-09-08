@@ -33,6 +33,24 @@ The extension follows your preferred directory structure:
 - Repositories are stored in `~/repos/owner/repo`
 - This mirrors the GitHub URL structure for easy navigation
 
+## Configuration
+
+The extension can be configured through VS Code settings:
+
+- **`vsgitlink.reposPath`** (default: `~/repos`): Base path where repositories will be stored. Use `~` for home directory. Repositories will be stored in `{reposPath}/{owner}/{repo}` format.
+- **`vsgitlink.defaultBranch`** (default: `main`): Default branch name to use when no branch is specified in GitHub URLs.
+- **`vsgitlink.autoSync`** (default: `true`): Automatically check and offer to sync repositories when they are behind remote.
+
+### Example Configuration
+
+```json
+{
+  "vsgitlink.reposPath": "~/code",
+  "vsgitlink.defaultBranch": "master",
+  "vsgitlink.autoSync": false
+}
+```
+
 ## Installation
 
 1. Clone this repository

@@ -34,8 +34,13 @@ export class GitHubLinkHandler {
             // Check if repository exists in workspace
             const repoPath = await this.repoManager.ensureRepository(linkInfo);
             
-            // Check if we need to sync the repository
-            await this.checkRepositorySync(repoPath, linkInfo.branch);
+            // Check if we need to sync the repository (if autoSync is enabled)
+            const config = vscode.workspace.getConfiguration('vsgitlink');
+            const autoSync = config.get<boolean>('autoSync', true);
+            
+            if (autoSync) {
+                await this.checkRepositorySync(repoPath, linkInfo.branch);
+            }
             
             // Open the file
             const fullFilePath = path.join(repoPath, linkInfo.filePath);

@@ -49,8 +49,13 @@ export class LinkGenerator {
             // Get current branch
             const currentBranch = await git.revparse(['--abbrev-ref', 'HEAD']);
             
-            // Check if local repo is up to date with remote
-            await this.checkAndOfferSync(git);
+            // Check if local repo is up to date with remote (if autoSync is enabled)
+            const config = vscode.workspace.getConfiguration('vsgitlink');
+            const autoSync = config.get<boolean>('autoSync', true);
+            
+            if (autoSync) {
+                await this.checkAndOfferSync(git);
+            }
 
             // Check for uncommitted changes
             const status = await git.status();

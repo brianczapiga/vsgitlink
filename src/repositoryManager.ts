@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { simpleGit, SimpleGit } from 'simple-git';
 import { GitHubLinkInfo } from './githubLinkHandler';
 
@@ -8,8 +9,12 @@ export class RepositoryManager {
     private readonly reposPath: string;
 
     constructor() {
-        // Use the user's preferred repos directory structure
-        this.reposPath = path.join(require('os').homedir(), 'repos');
+        // Get the configured repos path from settings
+        const config = vscode.workspace.getConfiguration('vsgitlink');
+        const configuredPath = config.get<string>('reposPath', '~/repos');
+        
+        // Expand ~ to home directory
+        this.reposPath = configuredPath.replace(/^~/, os.homedir());
     }
 
     async ensureRepository(linkInfo: GitHubLinkInfo): Promise<string> {

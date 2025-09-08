@@ -1,3 +1,4 @@
+import * as vscode from 'vscode';
 import { GitHubLinkInfo } from './githubLinkHandler';
 
 export class GitHubUrlParser {
@@ -18,10 +19,14 @@ export class GitHubUrlParser {
 
         const [, owner, repo, branch, filePath, startLineStr, endLineStr] = match;
 
+        // Get the configured default branch
+        const config = vscode.workspace.getConfiguration('vsgitlink');
+        const defaultBranch = config.get<string>('defaultBranch', 'main');
+
         const result: GitHubLinkInfo = {
             owner,
             repo,
-            branch: branch || 'main', // Default to main branch
+            branch: branch || defaultBranch, // Use configured default branch
             filePath: filePath || ''
         };
 

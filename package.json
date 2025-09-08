@@ -26,6 +26,26 @@
   "bugs": {
     "url": "https://github.com/brianczapiga/vsgitlink/issues"
   },
+  "configuration": {
+    "title": "VS Git Link",
+    "properties": {
+      "vsgitlink.reposPath": {
+        "type": "string",
+        "default": "~/repos",
+        "description": "Base path where repositories will be stored. Use ~ for home directory. Repositories will be stored in {reposPath}/{owner}/{repo} format."
+      },
+      "vsgitlink.defaultBranch": {
+        "type": "string",
+        "default": "main",
+        "description": "Default branch name to use when no branch is specified in GitHub URLs."
+      },
+      "vsgitlink.autoSync": {
+        "type": "boolean",
+        "default": true,
+        "description": "Automatically check and offer to sync repositories when they are behind remote."
+      }
+    }
+  },
   "activationEvents": [
     "onCommand:vsgitlink.openGitHubLink",
     "onCommand:vsgitlink.generateGitHubLink"
