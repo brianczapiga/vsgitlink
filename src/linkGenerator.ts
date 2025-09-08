@@ -26,17 +26,30 @@ export class LinkGenerator {
             
             // Get repository info
             const remotes = await git.getRemotes(true);
-            const origin = remotes.find(remote => remote.name === 'origin');
             
-            if (!origin) {
-                vscode.window.showErrorMessage('No origin remote found');
-                return;
+            // Try to find a GitHub remote (prefer origin, but check all remotes)
+            let githubUrl: { owner: string; repo: string } | null = null;
+            let remoteName = 'origin';
+            
+            // First try origin
+            const origin = remotes.find(remote => remote.name === 'origin');
+            if (origin) {
+                githubUrl = this.parseGitHubUrl(origin.refs.fetch);
             }
-
-            // Parse GitHub URL from origin
-            const githubUrl = this.parseGitHubUrl(origin.refs.fetch);
+            
+            // If origin doesn't work, try all other remotes
             if (!githubUrl) {
-                vscode.window.showErrorMessage('Repository is not hosted on GitHub');
+                for (const remote of remotes) {
+                    githubUrl = this.parseGitHubUrl(remote.refs.fetch);
+                    if (githubUrl) {
+                        remoteName = remote.name;
+                        break;
+                    }
+                }
+            }
+            
+            if (!githubUrl) {
+                vscode.window.showErrorMessage('No GitHub remote found. Please ensure the repository has a remote pointing to GitHub.');
                 return;
             }
 
@@ -48,7 +61,7 @@ export class LinkGenerator {
             const autoSync = config.get<boolean>('autoSync', true);
             
             if (autoSync) {
-                await this.checkAndOfferSync(git);
+                await this.checkAndOfferSync(git, remoteName);
             }
 
             // Check for uncommitted changes
@@ -97,31 +110,46 @@ export class LinkGenerator {
     }
 
     private parseGitHubUrl(url: string): { owner: string; repo: string } | null {
-        // Parse URLs like:
+        // Parse various GitHub URL formats:
         // https://github.com/owner/repo.git
+        // https://github.com/owner/repo
         // git@github.com:owner/repo.git
-        const httpsMatch = url.match(/https:\/\/github\.com\/([^\/]+)\/([^\/]+)\.git/);
+        // git@github.com:owner/repo
+        // git@github.com:/owner/repo.git
+        // git@github.com:/owner/repo
+        // ssh://git@github.com/owner/repo.git
+        // ssh://git@github.com/owner/repo
+        
+        // HTTPS URLs (with or without .git suffix)
+        const httpsMatch = url.match(/https:\/\/github\.com\/([^\/]+)\/([^\/]+?)(?:\.git)?$/);
         if (httpsMatch) {
             return { owner: httpsMatch[1], repo: httpsMatch[2] };
         }
 
-        const sshMatch = url.match(/git@github\.com:([^\/]+)\/([^\/]+)\.git/);
-        if (sshMatch) {
-            return { owner: sshMatch[1], repo: sshMatch[2] };
+        // SSH URLs with colon (git@github.com:owner/repo or git@github.com:/owner/repo)
+        const sshColonMatch = url.match(/git@github\.com:(\/)?([^\/]+)\/([^\/]+?)(?:\.git)?$/);
+        if (sshColonMatch) {
+            return { owner: sshColonMatch[2], repo: sshColonMatch[3] };
+        }
+
+        // SSH URLs with ssh:// protocol
+        const sshProtocolMatch = url.match(/ssh:\/\/git@github\.com\/([^\/]+)\/([^\/]+?)(?:\.git)?$/);
+        if (sshProtocolMatch) {
+            return { owner: sshProtocolMatch[1], repo: sshProtocolMatch[2] };
         }
 
         return null;
     }
 
-    private async checkAndOfferSync(git: SimpleGit): Promise<void> {
+    private async checkAndOfferSync(git: SimpleGit, remoteName: string): Promise<void> {
         try {
             // Fetch latest changes from remote
-            await git.fetch();
+            await git.fetch(remoteName);
             
             // Check if local branch is behind remote
             const status = await git.status();
             const currentBranch = await git.revparse(['--abbrev-ref', 'HEAD']);
-            const remoteBranch = `origin/${currentBranch}`;
+            const remoteBranch = `${remoteName}/${currentBranch}`;
             
             // Get commit counts
             const localCommits = await git.raw(['rev-list', '--count', 'HEAD']);
@@ -135,7 +163,7 @@ export class LinkGenerator {
                 );
 
                 if (choice === 'Pull with Rebase') {
-                    await this.pullWithRebase(git);
+                    await this.pullWithRebase(git, remoteName);
                 } else if (choice === undefined) {
                     throw new Error('User cancelled due to outdated local branch');
                 }
@@ -146,10 +174,10 @@ export class LinkGenerator {
         }
     }
 
-    private async pullWithRebase(git: SimpleGit): Promise<void> {
+    private async pullWithRebase(git: SimpleGit, remoteName: string): Promise<void> {
         try {
             vscode.window.showInformationMessage('Pulling latest changes with rebase...');
-            await git.pull('origin', await git.revparse(['--abbrev-ref', 'HEAD']), ['--rebase']);
+            await git.pull(remoteName, await git.revparse(['--abbrev-ref', 'HEAD']), ['--rebase']);
             vscode.window.showInformationMessage('Successfully pulled latest changes');
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to pull with rebase: ${error}`);
