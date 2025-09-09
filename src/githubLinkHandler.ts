@@ -69,6 +69,31 @@ export class GitHubLinkHandler {
     private async checkRepositorySync(repoPath: string, targetBranch: string): Promise<void> {
         try {
             const git = simpleGit(repoPath);
+            let stashedChanges = false;
+            
+            // Check for uncommitted changes first
+            const status = await git.status();
+            const hasUncommittedChanges = status.files.length > 0;
+            
+            if (hasUncommittedChanges) {
+                const choice = await vscode.window.showWarningMessage(
+                    `You have uncommitted changes. To switch to branch '${targetBranch}', you can:`,
+                    'Stash Changes & Switch',
+                    'Commit Changes & Switch',
+                    'Cancel'
+                );
+                
+                if (choice === 'Stash Changes & Switch') {
+                    await git.stash();
+                    stashedChanges = true;
+                    vscode.window.showInformationMessage('Changes stashed successfully');
+                } else if (choice === 'Commit Changes & Switch') {
+                    await this.promptCommit(git);
+                    // After committing, continue with branch switch
+                } else {
+                    return; // User cancelled
+                }
+            }
             
             // Fetch latest changes
             await git.fetch();
@@ -103,9 +128,48 @@ export class GitHubLinkHandler {
                     vscode.window.showInformationMessage('Successfully pulled latest changes');
                 }
             }
+            
+            // Offer to reapply stashed changes if we stashed them
+            if (stashedChanges) {
+                const choice = await vscode.window.showInformationMessage(
+                    'Would you like to reapply your stashed changes to the current branch?',
+                    'Reapply Stashed Changes',
+                    'Keep Stashed'
+                );
+                
+                if (choice === 'Reapply Stashed Changes') {
+                    try {
+                        await git.stash(['pop']);
+                        vscode.window.showInformationMessage('Stashed changes reapplied successfully');
+                    } catch (error) {
+                        vscode.window.showWarningMessage('Could not reapply stashed changes. You may need to resolve conflicts manually.');
+                        console.warn('Failed to reapply stash:', error);
+                    }
+                }
+            }
         } catch (error) {
             // If we can't check sync status, continue anyway
             console.warn('Could not check repository sync status:', error);
+        }
+    }
+
+    private async promptCommit(git: SimpleGit): Promise<void> {
+        const message = await vscode.window.showInputBox({
+            prompt: 'Enter commit message',
+            placeHolder: 'Update changes for branch switch'
+        });
+
+        if (message) {
+            try {
+                await git.add('.');
+                await git.commit(message);
+                vscode.window.showInformationMessage('Changes committed successfully');
+            } catch (error) {
+                vscode.window.showErrorMessage(`Failed to commit: ${error}`);
+                throw error; // Re-throw to stop the process
+            }
+        } else {
+            throw new Error('Commit cancelled by user');
         }
     }
 }
